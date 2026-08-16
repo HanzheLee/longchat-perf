@@ -95,3 +95,7 @@ MIT。详见 [LICENSE](LICENSE)。
 
 本项目为非官方项目，与 OpenAI 无关联、未经其认可或赞助。"ChatGPT" 及相关
 商标归其各自所有者所有，此处提及仅为描述兼容目标。
+
+## 致谢
+
+感谢 [LINUX DO 社区](https://linux.do) 对本项目的认可、反馈与支持。

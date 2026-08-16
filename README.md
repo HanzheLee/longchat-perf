@@ -104,3 +104,8 @@ MIT. See [LICENSE](LICENSE).
 This project is unofficial and not affiliated with, endorsed by, or sponsored
 by OpenAI. "ChatGPT" and related marks are trademarks of their respective
 owners; they are mentioned only to describe the compatibility target.
+
+## Acknowledgements
+
+Thanks to the [LINUX DO community](https://linux.do) for the recognition,
+feedback, and support that helped shape this project.
