@@ -1,0 +1,106 @@
+# LongChat Perf
+
+**A tiny, local-only rendering patch for keeping long ChatGPT conversations responsive.**
+
+```
+No network requests.  No analytics.  No message deletion.
+```
+
+~300 lines of core JS. No framework. No build step. No dependencies at runtime.
+
+[中文说明 (README.zh-CN.md)](README.zh-CN.md)
+
+---
+
+## What this extension does NOT do
+
+- No chat export
+- No AI features
+- No analytics
+- No backend
+- No account
+- No DOM deletion
+- No build framework
+
+It is a single-purpose rendering patch: long ChatGPT conversations become
+progressively slower as the page keeps every message in the DOM. LongChat Perf
+reduces the rendering work for the messages you are not looking at.
+
+## Install
+
+Currently distributed as source only. Two steps:
+
+1. Download this repository as a ZIP (or `git clone`).
+2. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**,
+   click **Load unpacked**, and select the `longchat-perf/` folder.
+
+No build, no package manager, no account required.
+
+## How it works
+
+The content script applies four optional patches; all of them are toggles in the
+popup and can be disabled individually (or the whole extension can be turned off).
+
+| Patch | What it does |
+|---|---|
+| **Off-screen rendering skip** | Applies `content-visibility: auto` with `contain-intrinsic-size` to message and code-block elements. Browsers then skip layout and painting for content outside the viewport (Chromium 85+, Firefox 125+, Safari 18+). |
+| **Backdrop-filter disable** | Disables `backdrop-filter` as an optional aggressive performance patch, avoiding per-frame layer compositing of blurred surfaces during scroll. |
+| **Progressive old-message folding** | While you scroll down, messages far above the viewport (at least two viewports away) are folded to zero height via CSS and collapsed behind a small expand bar. Scrolling up expands everything again. |
+| **Streaming-phase throttle** | While an answer is streaming, animations and transitions in the message area are paused to reduce compositor work on every token. |
+
+### How folding behaves
+
+- Folding is **progressive and scroll-driven**: it only happens while you scroll
+  down, and it only touches messages far above the viewport. The extension never
+  folds content on its own in the background.
+- **Scrolling up expands everything immediately**, without moving the content
+  you are currently reading.
+- After any expand, folding is paused for 8 seconds to avoid fold/expand churn.
+- The expand bar at the top of the thread jumps you to the earliest message.
+
+**A note on what folding does and does not do:** it primarily reduces
+layout/paint/rendering overhead rather than fully virtualizing or deleting DOM
+nodes. It does not remove ChatGPT-managed message nodes; folding is CSS-based
+and reversible. Message nodes, React state, and JS memory remain in place.
+
+**Compatibility:** ChatGPT's frontend is closed-source and changes over time.
+The script locates messages via stable DOM attributes
+(`div[data-message-author-role][data-message-id]`). If ChatGPT changes its
+rendering strategy or DOM structure, compatibility may need to be revalidated.
+
+## Development
+
+```bash
+npm install   # installs jsdom (dev dependency only)
+npm test      # runs tools/smoke-test.js (24 assertions, jsdom-based)
+```
+
+To regenerate the icons (pure standard library, no Pillow):
+
+```bash
+python3 tools/gen_icons.py
+```
+
+## Privacy
+
+The extension makes no network requests, has no analytics, no backend, and does
+not transmit chat content. It stores only your on/off settings via
+`chrome.storage.sync`. See [PRIVACY.md](PRIVACY.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+## Roadmap (P1 — not implemented yet)
+
+- Real long-conversation Before/After measurements (typing lag, scroll frame
+  times, memory) from an actual heavily-loaded chat
+- A short before/after demo GIF
+- GitHub Actions running `npm test` on CI
+- Chrome Web Store / Edge Store distribution
+
+## Disclaimer
+
+This project is unofficial and not affiliated with, endorsed by, or sponsored
+by OpenAI. "ChatGPT" and related marks are trademarks of their respective
+owners; they are mentioned only to describe the compatibility target.

@@ -1,0 +1,12 @@
+{
+  "name": "longchat-perf",
+  "version": "0.1.0",
+  "description": "A tiny, local-only rendering patch for keeping long ChatGPT conversations responsive.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tools/smoke-test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  }
+}

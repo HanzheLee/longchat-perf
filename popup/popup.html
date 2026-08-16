@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <span class="title">⚡ LongChat Perf</span>
+    <label class="switch" title="总开关">
+      <input type="checkbox" id="master">
+      <span class="slider"></span>
+    </label>
+  </header>
+
+  <section class="patches">
+    <label class="row">
+      <input type="checkbox" id="cv">
+      <span class="desc">
+        <b>核心渲染跳过</b>
+        <small>content-visibility：屏幕外消息/代码块不布局不绘制（收益最大）</small>
+      </span>
+    </label>
+    <label class="row">
+      <input type="checkbox" id="noblur">
+      <span class="desc">
+        <b>中和毛玻璃</b>
+        <small>关闭 backdrop-filter，减少滚动时的图层合成开销</small>
+      </span>
+    </label>
+    <label class="row">
+      <input type="checkbox" id="collapse">
+      <span class="desc">
+        <b>旧消息折叠</b>
+        <small>早期消息折叠为零高度，点击提示条或滚到顶部可展开</small>
+      </span>
+    </label>
+    <label class="row">
+      <input type="checkbox" id="stream">
+      <span class="desc">
+        <b>流式输出防抖</b>
+        <small>输出期间关闭消息区动画过渡，暂停折叠维护</small>
+      </span>
+    </label>
+  </section>
+
+  <section class="opts">
+    <label class="keep">
+      最近保留消息数
+      <input type="number" id="keep" min="10" max="500" step="10" value="60">
+    </label>
+    <div class="btnrow">
+      <button id="foldNow" title="立即折叠视口上方的早期消息">立即折叠</button>
+      <button id="expandAll" title="展开全部已折叠消息">展开全部</button>
+    </div>
+  </section>
+
+  <footer id="status">正在读取状态…</footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

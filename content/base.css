@@ -1,0 +1,79 @@
+/* ============================================================
+   ChatGPT 会话性能优化 —— 注入样式（manifest content_scripts）
+   所有规则都挂在 html.lcp-* 类下，由 content.js 在运行时开关，
+   站点自带样式不受影响，随时可整体禁用。
+   ============================================================ */
+
+/* ---------- 补丁 1：content-visibility 核心渲染跳过 ----------
+   屏幕外的消息 / 代码块跳过布局与绘制（浏览器原生优化，Chrome 85+，
+   Edge 85+, Firefox 125+, Safari 18+）。
+   contain-intrinsic-size: auto 让浏览器记住最近一次真实尺寸，
+   尽量消除滚动到附近时的尺寸跳动。 */
+html.lcp-on.lcp-cv [data-message-author-role],
+html.lcp-on.lcp-cv article[data-testid^="conversation-turn"] {
+  content-visibility: auto !important;
+  contain-intrinsic-size: auto 240px !important;
+}
+html.lcp-on.lcp-cv [data-message-author-role] pre,
+html.lcp-on.lcp-cv article[data-testid^="conversation-turn"] pre {
+  content-visibility: auto !important;
+  contain-intrinsic-size: auto 120px !important;
+}
+
+/* ---------- 补丁 2：中和毛玻璃（backdrop-filter） ----------
+   长列表滚动掉帧的元凶之一：毛玻璃每帧都要重新合成图层。
+   关闭后改为纯色背景，滚动合成成本趋近于零。 */
+html.lcp-on.lcp-noblur *,
+html.lcp-on.lcp-noblur *::before,
+html.lcp-on.lcp-noblur *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ---------- 补丁 3：流式输出防抖 ----------
+   流式输出期间关闭消息区所有动画/过渡（光标闪烁、shimmer 等），
+   减少合成器每 token 的重绘开销；同时 content.js 会暂停自身
+   的折叠维护，避免与 React 抢主线程。 */
+html.lcp-on.lcp-stream.lcp-streaming [data-message-author-role] * {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ---------- 补丁 4：旧消息折叠 ----------
+   不删除任何 DOM 节点（对 React 完全安全），只是把早期消息折叠为
+   零高度且不渲染；点击提示条或滚动到顶部即可展开还原。 */
+html.lcp-on.lcp-collapse .lcp-folded {
+  content-visibility: hidden !important;
+  contain-intrinsic-size: 0 0 !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* 折叠提示条 */
+html.lcp-on.lcp-collapse .lcp-fold-bar {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 16px;
+  padding: 8px 14px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.1);
+  font-size: 12.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+}
+html.lcp-on.lcp-collapse .lcp-fold-bar:hover {
+  background: rgba(127, 127, 127, 0.18);
+}

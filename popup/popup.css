@@ -1,0 +1,150 @@
+body {
+  width: 320px;
+  margin: 0;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  color: #e5e7eb;
+  background: #0f172a;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  background: #111c33;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* 总开关 */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #334155;
+  border-radius: 999px;
+  transition: background 0.15s;
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  top: 2px;
+  background: #cbd5e1;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+.switch input:checked + .slider {
+  background: #22c55e;
+}
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.patches {
+  padding: 6px 0;
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.row:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+.row input {
+  margin-top: 2px;
+  accent-color: #22c55e;
+}
+.desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.desc b {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.desc small {
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.row.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.opts {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.keep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 12px;
+}
+.keep input {
+  width: 64px;
+  padding: 4px 6px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  background: #1e293b;
+  color: #e5e7eb;
+  font-size: 12px;
+}
+.btnrow {
+  display: flex;
+  gap: 8px;
+}
+.btnrow button {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e5e7eb;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btnrow button:hover {
+  background: #27364e;
+}
+.btnrow button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+footer {
+  padding: 8px 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
