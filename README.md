@@ -6,7 +6,7 @@
 No network requests.  No analytics.  No message deletion.
 ```
 
-~300 lines of core JS. No framework. No build step. No dependencies at runtime.
+~700 lines of core JS. No framework. No build step. No dependencies at runtime.
 
 [中文说明 (README.zh-CN.md)](README.zh-CN.md)
 
@@ -38,7 +38,7 @@ No build, no package manager, no account required.
 
 ## How it works
 
-The content script applies four optional patches; all of them are toggles in the
+The content script applies five optional patches; all of them are toggles in the
 popup and can be disabled individually (or the whole extension can be turned off).
 
 | Patch | What it does |
@@ -47,6 +47,33 @@ popup and can be disabled individually (or the whole extension can be turned off
 | **Backdrop-filter disable** | Disables `backdrop-filter` as an optional aggressive performance patch, avoiding per-frame layer compositing of blurred surfaces during scroll. |
 | **Progressive old-message folding** | While you scroll down, messages far above the viewport (at least two viewports away) are folded to zero height via CSS and collapsed behind a small expand bar. Scrolling up expands everything again. |
 | **Streaming-phase throttle** | While an answer is streaming, animations and transitions in the message area are paused to reduce compositor work on every token. |
+| **CodeMirror batch mounting** (v0.2) | When a conversation opens or is switched to, all CodeMirror code editors created in the same task are held detached and mounted in one batch, amortizing N full-page style recalculations into 1 (requires Chrome 111+). |
+
+### How code-block batch mounting behaves
+
+The heaviest DOM in long conversations is code blocks (CodeMirror 6 editors).
+Opening or switching a conversation mounts dozens to hundreds of editor
+instances at once; each insertion triggers a full-page style recalculation
+while connected to the document — the direct cause of "switching chats
+freezes the tab for tens of seconds".
+
+The patch exploits CodeMirror's construction order: the editor root is
+inserted into the document *before* it gets its class names. The patch holds
+those not-yet-initialized roots detached (detached subtrees do not invalidate
+page styles) and mounts the whole batch in a single task. Measured on a
+147-editor conversation: a 42-second long task drops to ~2–3 s of total busy
+ time.
+
+- The patch runs in the page's main world (`content_scripts[].world:
+  "MAIN"`, Chrome 111+; on older browsers it simply does not run and the
+  other patches are unaffected).
+- Anything that does not match the exact structure fingerprint passes through
+  natively. If a ChatGPT redesign breaks the fingerprint, the patch **fails
+  safe** to pass-through and the popup shows a "patch may be stale" warning.
+- If a Tampermonkey userscript variant (`__CHATGPT_CM_PERF_FIX__`) is already
+  installed, this patch yields to it to avoid double interception.
+- The popup shows live stats: editors intercepted, batches, last batch size
+  and mount time.
 
 ### How folding behaves
 
@@ -72,7 +99,7 @@ rendering strategy or DOM structure, compatibility may need to be revalidated.
 
 ```bash
 npm install   # installs jsdom (dev dependency only)
-npm test      # runs tools/smoke-test.js (24 assertions, jsdom-based)
+npm test      # runs tools/smoke-test.js (42 assertions, jsdom-based)
 ```
 
 To regenerate the icons (pure standard library, no Pillow):

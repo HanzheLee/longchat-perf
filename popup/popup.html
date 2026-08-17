@@ -42,6 +42,13 @@
         <small>输出期间关闭消息区动画过渡，暂停折叠维护</small>
       </span>
     </label>
+    <label class="row">
+      <input type="checkbox" id="cmMount">
+      <span class="desc">
+        <b>代码块批量挂载</b>
+        <small>合并代码编辑器初始化的整页样式重算，大幅缩短打开/切换长会话的卡顿</small>
+      </span>
+    </label>
   </section>
 
   <section class="opts">
@@ -55,7 +62,10 @@
     </div>
   </section>
 
-  <footer id="status">正在读取状态…</footer>
+  <footer>
+    <div id="cmStatus"></div>
+    <div id="status">正在读取状态…</div>
+  </footer>
 
 <script src="popup.js"></script>
 </body>

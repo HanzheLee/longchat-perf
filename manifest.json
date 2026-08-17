@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LongChat Perf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A tiny, local-only rendering patch for keeping long ChatGPT conversations responsive.",
   "permissions": ["storage"],
   "host_permissions": [
@@ -16,6 +16,15 @@
       ],
       "css": ["content/base.css"],
       "js": ["content/content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["content/cm-mount.js"],
+      "world": "MAIN",
       "run_at": "document_start"
     }
   ],

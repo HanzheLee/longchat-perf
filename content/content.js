@@ -4,6 +4,10 @@
 // 思路：不修改任何站点代码，通过切换 html.lcp-* 类来启停注入
 // 样式，并配合轻量 DOM 补丁（旧消息折叠）解决长会话卡顿。
 //
+// v0.2 新增补丁 5（代码块批量挂载）：本体在 content/cm-mount.js
+//（MAIN world，修 Node.prototype.appendChild）。本脚本负责经
+// postMessage 桥下发开关、回收统计，供 popup 展示。
+//
 // v2 折叠策略（修复 v1 的体验问题）：
 //   - 只在【用户向下滚动】时渐进折叠远离视口的历史消息，绝不后台自动折叠
 //   - 用户【向上滚动】即展开全部（视口内容不动），彻底消除"往上拉看不到"
@@ -21,11 +25,60 @@
     noblur: true,       // 补丁2: 中和毛玻璃
     collapse: true,     // 补丁3: 旧消息折叠
     stream: true,       // 补丁4: 流式输出防抖
+    cmMount: true,      // 补丁5: CodeMirror 批量挂载（MAIN world 脚本）
     keepMessages: 60,   // 折叠时保留最近的多少条消息不折
   };
 
   const store = chrome.storage.sync || chrome.storage.local;
   let settings = { ...DEFAULTS };
+
+  /* ---------------- MAIN world 桥（补丁 5） ----------------
+     cm-mount.js 运行在 MAIN world，与本脚本不共享 JS 对象，
+     只能通过 window.postMessage 通信。消息形如
+     { ns: 'lcp-cm', type: 'set'|'poll'|'ready'|'stats', ... }。 */
+  const cmState = {
+    present: false,   // 本页是否注入了 cm-mount.js
+    version: null,
+    enabled: false,
+    stale: false,     // 指纹疑似过期（页面改版）
+    external: false,  // userscript 版补丁在场，已让位
+    stats: null,
+    lastSeen: 0,
+  };
+
+  function postToMain(msg) {
+    try { window.postMessage({ ns: 'lcp-cm', ...msg }, '*'); } catch { /* ignore */ }
+  }
+
+  function syncCmMount() {
+    postToMain({ type: 'set', enabled: settings.enabled && settings.cmMount });
+    postToMain({ type: 'poll' }); // 顺带确认存在性（丢失 ready 也能自愈）
+  }
+
+  window.addEventListener('message', (ev) => {
+    const d = ev.data;
+    if (!d || typeof d !== 'object' || d.ns !== 'lcp-cm') return;
+    if (d.type !== 'ready' && d.type !== 'stats') return;
+    const s = d.stats || {};
+    cmState.present = true;
+    cmState.lastSeen = Date.now();
+    cmState.version = s.version || null;
+    cmState.enabled = !!s.enabled;
+    cmState.stale = !!s.stale;
+    cmState.external = !!s.external;
+    cmState.stats = s.intercepted != null ? s : null; // 安装失败时只有 installError
+  });
+
+  function cmSummary() {
+    return {
+      present: cmState.present,
+      version: cmState.version,
+      enabled: cmState.enabled,
+      stale: cmState.stale,
+      external: cmState.external,
+      stats: cmState.stats,
+    };
+  }
 
   /* ---------------- 根类管理：决定启用哪些补丁 ---------------- */
   function applyClasses() {
@@ -279,7 +332,9 @@
         folded: collapse.folded.size,
         streaming: stream.active,
         messages: getMessages().length,
+        cm: cmSummary(),
       });
+      syncCmMount(); // 自愈：即使此前 set 消息丢失，也能在此对齐
     } else if (msg.type === 'lcp-fold-now') {
       const sc = findScrollContainer();
       foldUpwards(sc);
@@ -303,6 +358,7 @@
     if (!changed) return;
     applyClasses();
     if (!settings.enabled || !settings.collapse) expandAll();
+    if ('enabled' in changes || 'cmMount' in changes) syncCmMount();
   });
 
   /* ---------------- 启动 ---------------- */
@@ -310,6 +366,7 @@
     store.get(DEFAULTS, (saved) => {
       settings = { ...DEFAULTS, ...saved };
       applyClasses();
+      syncCmMount(); // 向 MAIN world 补丁下发开关并探询存在性
       const start = () => {
         mo.observe(document.body, { childList: true, subtree: true, characterData: true });
         lastBoundSc = findScrollContainer(true);

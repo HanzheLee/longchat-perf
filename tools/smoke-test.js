@@ -2,7 +2,8 @@
 // LongChat Perf — smoke test (jsdom)
 // 运行：npm install && npm test
 // 覆盖：渐进折叠 / delta 累加 / 视口保持 / 向上展开 / 冷却防抖 /
-//       无后台自动折叠 / DOM 保留 / 首次滚动方向（T1）/ bar 展开冷却（T2）
+//       无后台自动折叠 / DOM 保留 / 首次滚动方向（T1）/ bar 展开冷却（T2）/
+//       CodeMirror 批量挂载·桥接·泄漏探测（T3）
 // ============================================================
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
@@ -252,12 +253,121 @@ async function T2() {
   assert(f === 0, '展开后立即向下滚动不重新折叠（bar 点击路径同样进入冷却）');
 }
 
+// ================= T3：补丁 5 — CodeMirror 批量挂载（MAIN world 模拟） =================
+// jsdom 单窗口内同时扮演 MAIN world（cm-mount.js）与 isolated world（桥消息），
+// 验证：拦截/批量合并/透传/桥启停/泄漏探测（指纹过期告警）。
+const cmMountJs = fs.readFileSync(path.join(__dirname, '..', 'content', 'cm-mount.js'), 'utf8');
+
+function makeCmEnv() {
+  const dom = new JSDOM(
+    `<!DOCTYPE html><html><head></head><body><div id="wrap"></div></body></html>`,
+    { runScripts: 'outside-only', pretendToBeVisual: true }
+  );
+  const { window } = dom;
+  const { document } = window;
+  window.eval(cmMountJs);
+  const api = window.__LCP_CM_MOUNT__;
+  const wrap = document.getElementById('wrap');
+
+  // 模拟 isolated 世界：捕获 MAIN world 发来的 stats 广播
+  const statsMsgs = [];
+  window.addEventListener('message', (ev) => {
+    if (ev.data && ev.data.ns === 'lcp-cm' && ev.data.type === 'stats') {
+      statsMsgs.push(ev.data.stats);
+    }
+  });
+
+  // 模拟 CM6 构造第 3 步：未初始化根（.cm-announced + .cm-scroller，无 .cm-editor）
+  function makeCmRoot(initialized = false) {
+    const root = document.createElement('div');
+    const a = document.createElement('div'); a.className = 'cm-announced';
+    const s = document.createElement('div'); s.className = 'cm-scroller';
+    root.appendChild(a); root.appendChild(s);
+    if (initialized) root.classList.add('cm-editor'); // 模拟已过第 4 步
+    return root;
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  return { window, document, api, wrap, makeCmRoot, sleep, statsMsgs };
+}
+
+async function T3() {
+  console.log('\nT3: 补丁 5 — CodeMirror 批量挂载');
+  const { window, document, api, wrap, makeCmRoot, sleep, statsMsgs } = makeCmEnv();
+
+  assert(!!api, 'MAIN world 补丁已注入并暴露 API');
+  assert(api.enabled === false, '默认禁用，等待设置下发');
+
+  // 1) 未启用时透传：同步直接挂载
+  const r0 = makeCmRoot();
+  wrap.appendChild(r0);
+  assert(r0.isConnected && api.stats.intercepted === 0, '未启用时 CM 根直接透传');
+
+  // 2) 桥启用
+  window.postMessage({ ns: 'lcp-cm', type: 'set', enabled: true }, '*');
+  await sleep(20);
+  assert(api.enabled === true, '桥消息启用补丁');
+
+  // 3) 拦截 + 延迟挂载
+  const r1 = makeCmRoot();
+  wrap.appendChild(r1);
+  assert(!r1.isConnected && api.stats.intercepted === 1, '命中指纹：暂扣游离，intercepted+1');
+  await sleep(20);
+  assert(r1.isConnected && api.stats.mounted === 1 && api.stats.batches === 1, 'flush 后统一挂载');
+
+  // 4) 批量合并：同一任务 5 个编辑器 → 单批
+  const roots = Array.from({ length: 5 }, () => makeCmRoot());
+  roots.forEach((r) => wrap.appendChild(r));
+  assert(roots.every((r) => !r.isConnected), '同任务 5 个编辑器全部暂扣');
+  await sleep(20);
+  assert(roots.every((r) => r.isConnected), '一批 flush 全部挂载');
+  assert(api.stats.lastBatchSize === 5 && api.stats.batches === 2, '5 编辑器合并为单批');
+
+  // 5) 普通节点 / 已初始化编辑器透传；后者计入泄漏（结构变化信号）
+  const plain = document.createElement('span');
+  wrap.appendChild(plain);
+  assert(plain.isConnected, '普通节点同步透传');
+  const rInit = makeCmRoot(true);
+  wrap.appendChild(rInit);
+  assert(rInit.isConnected && api.stats.intercepted === 6, '已初始化编辑器透传（指纹不命中）');
+  await sleep(20);
+  assert(api.stats.leaked === 1, '已初始化编辑器进入文档 → 泄漏计数 +1');
+
+  // 6) 桥关闭 → 透传且不再计数；扣住的节点立即归还
+  window.postMessage({ ns: 'lcp-cm', type: 'set', enabled: false }, '*');
+  await sleep(20);
+  const rOff = makeCmRoot();
+  wrap.appendChild(rOff);
+  assert(rOff.isConnected && api.stats.intercepted === 6 && api.enabled === false, '桥关闭后透传且不再拦截');
+
+  // 7) 泄漏探测：指纹失效时页面会以别的路径挂编辑器（模拟为“已初始化根直接进入文档”）
+  window.postMessage({ ns: 'lcp-cm', type: 'set', enabled: true }, '*');
+  await sleep(20);
+  for (let i = 0; i < 3; i++) wrap.appendChild(makeCmRoot(true));
+  await sleep(30);
+  assert(api.stats.leaked === 4 && !api.stats.stale, '泄漏累计但未达阈值（4 < 5）不告警');
+  wrap.appendChild(makeCmRoot(true));
+  await sleep(30);
+  assert(api.stats.leaked === 5 && api.stats.stale === true, '泄漏达阈值 → stale 告警');
+
+  // 8) stale 仅是告警，拦截仍工作；桥可回传状态
+  const rS = makeCmRoot();
+  wrap.appendChild(rS);
+  assert(!rS.isConnected && api.stats.intercepted === 7, 'stale 后拦截仍工作（告警不致瘫）');
+  await sleep(20);
+  assert(rS.isConnected, 'stale 后 flush 仍完成挂载');
+  window.postMessage({ ns: 'lcp-cm', type: 'poll' }, '*');
+  await sleep(20);
+  const last = statsMsgs[statsMsgs.length - 1];
+  assert(!!last && last.version === '0.2.0' && last.stale === true, '桥 poll 返回完整状态（版本+stale）');
+}
+
 (async () => {
   console.log('LongChat Perf smoke test\n');
   console.log('== 主场景 ==');
   await mainScenario(makeEnv({}));
   await T1();
   await T2();
+  await T3();
   console.log(failures ? `\n结果: ${failures} 项失败` : '\n结果: 全部通过 ✅');
   process.exit(failures ? 1 : 0);
 })();

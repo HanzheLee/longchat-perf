@@ -148,3 +148,9 @@ footer {
   font-size: 11px;
   line-height: 1.5;
 }
+footer #cmStatus {
+  margin-bottom: 2px;
+}
+footer .warn {
+  color: #fbbf24;
+}
