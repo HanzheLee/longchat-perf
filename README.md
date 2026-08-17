@@ -89,6 +89,19 @@ quantifies the win directly:
 3. The difference is the main-thread blocking time the patch saves
    (tasks >50 ms count; counters reset on reload).
 
+**Real-world measurement (2026-08, Chrome, several long conversations,
+~624 editors total):**
+
+| Metric | Patch on | Patch off | Improvement |
+|---|---|---|---|
+| Cumulative long tasks | 20.0s | 41.4s | **-52%** |
+| Worst single freeze | 1.1s | 8.5s | **-87%** |
+| Interception rate | 624/624 (9 batches) | — | 100% |
+
+A CDP-traced cold switch of a 147-editor conversation measured ~2–3s
+of main-thread busy time with the patch versus a single 42.4s long
+task without it.
+
 For a gold-standard measurement, record conversation switches with
 DevTools → Performance with the patch on and off; `window.__LCP_CM_MOUNT__.state()`
 in the page console returns the full stats object.
@@ -138,8 +151,8 @@ MIT. See [LICENSE](LICENSE).
 
 ## Roadmap (P1 — not implemented yet)
 
-- Real long-conversation Before/After measurements (typing lag, scroll frame
-  times, memory) from an actual heavily-loaded chat
+- Before/After data for typing lag, scroll frame times, and memory
+  (long-task dimension measured above)
 - A short before/after demo GIF
 - GitHub Actions running `npm test` on CI
 - Chrome Web Store / Edge Store distribution
