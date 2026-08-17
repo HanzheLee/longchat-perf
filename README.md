@@ -153,7 +153,6 @@ MIT. See [LICENSE](LICENSE).
 
 - Before/After data for typing lag, scroll frame times, and memory
   (long-task dimension measured above)
-- A short before/after demo GIF
 - GitHub Actions running `npm test` on CI
 - Chrome Web Store / Edge Store distribution
 

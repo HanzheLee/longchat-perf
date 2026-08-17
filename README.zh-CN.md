@@ -131,7 +131,6 @@ MIT。详见 [LICENSE](LICENSE)。
 ## 路线图（P1 — 尚未实现）
 
 - 输入延迟 / 滚动帧耗时 / 内存维度的 Before/After（长任务维度已实测，见上文）
-- 一段 Before/After 演示 GIF
 - GitHub Actions 在 CI 上运行 `npm test`
 - Chrome Web Store / Edge Store 分发
 
