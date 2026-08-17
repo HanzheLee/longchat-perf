@@ -108,6 +108,8 @@ React 状态与 JS 内存始终保留。
 
 ## 开发
 
+[![CI](https://github.com/HanzheLee/longchat-perf/actions/workflows/ci.yml/badge.svg)](https://github.com/HanzheLee/longchat-perf/actions/workflows/ci.yml)
+
 ```bash
 npm install   # 安装 jsdom（仅开发依赖）
 npm test      # 运行 tools/smoke-test.js（49 项断言，基于 jsdom）

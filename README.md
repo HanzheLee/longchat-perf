@@ -128,6 +128,8 @@ rendering strategy or DOM structure, compatibility may need to be revalidated.
 
 ## Development
 
+[![CI](https://github.com/HanzheLee/longchat-perf/actions/workflows/ci.yml/badge.svg)](https://github.com/HanzheLee/longchat-perf/actions/workflows/ci.yml)
+
 ```bash
 npm install   # installs jsdom (dev dependency only)
 npm test      # runs tools/smoke-test.js (49 assertions, jsdom-based)
