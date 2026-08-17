@@ -24,7 +24,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.2.1';
+  const VERSION = '0.2.2';
   const API_NAME = '__LCP_CM_MOUNT__';
   const USERSCRIPT_API = '__CHATGPT_CM_PERF_FIX__';
   const LEAK_STALE_THRESHOLD = 5; // 累计多少个"未经拦截的 CM 根"判定指纹过期
@@ -153,6 +153,15 @@
     stats.batches += 1;
     stats.lastBatchSize = batch.length;
     stats.lastBatchInsertTimeMs = Math.round((performance.now() - startedAt) * 100) / 100;
+
+    // User Timing 标记：DevTools Performance 录制中 Timings 轨可直接看到批次边界
+    if (mounted > 0) {
+      try {
+        if (typeof performance.mark === 'function') {
+          performance.mark('lcp-cm-batch', { detail: { mounted, queued: batch.length } });
+        }
+      } catch { /* 非关键 */ }
+    }
 
     debug('mounted batch', { queued: batch.length, mounted });
     startBatchBusyWindow(startedAt);

@@ -1,6 +1,6 @@
 {
   "name": "longchat-perf",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A tiny, local-only rendering patch for keeping long ChatGPT conversations responsive.",
   "license": "MIT",
   "scripts": {

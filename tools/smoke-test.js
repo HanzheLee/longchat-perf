@@ -371,7 +371,7 @@ async function T3() {
   window.postMessage({ ns: 'lcp-cm', type: 'poll' }, '*');
   await sleep(20);
   const last = statsMsgs[statsMsgs.length - 1];
-  assert(!!last && last.version === '0.2.1' && last.stale === true, '桥 poll 返回完整状态（版本+stale）');
+  assert(!!last && last.version === '0.2.2' && last.stale === true, '桥 poll 返回完整状态（版本+stale）');
 
   // 9) 长任务监视：批量挂载后结算伴随长任务；桥携带字段
   assert(api.state().ltSupported === true, '长任务监视器已启用');
