@@ -24,10 +24,17 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.2.0';
+  const VERSION = '0.2.1';
   const API_NAME = '__LCP_CM_MOUNT__';
   const USERSCRIPT_API = '__CHATGPT_CM_PERF_FIX__';
   const LEAK_STALE_THRESHOLD = 5; // 累计多少个"未经拦截的 CM 根"判定指纹过期
+
+  const config = {
+    debug: false,
+    leakStaleThreshold: LEAK_STALE_THRESHOLD,
+    busySettleMs: 2000,     // 长任务窗口空闲多久后结算"本批后"时长
+    busyWindowMaxMs: 10000, // "本批后"窗口的最长跨度（防止流式输出误计入）
+  };
 
   if (window[API_NAME]) return; // 防重复注入
 
@@ -82,6 +89,12 @@
     stale: false,  // 指纹疑似过期
     lastBatchSize: 0,
     lastBatchInsertTimeMs: 0,
+    // 长任务监视（本地效果验证）：>50ms 主线程任务
+    ltSupported: false,
+    ltCount: 0,
+    ltTotalMs: 0,
+    ltWorstMs: 0,
+    lastBatchBusyMs: null, // 上一批挂载引发/伴随的长任务总时长
     installedAt: new Date().toISOString(),
   };
 
@@ -142,6 +155,7 @@
     stats.lastBatchInsertTimeMs = Math.round((performance.now() - startedAt) * 100) / 100;
 
     debug('mounted batch', { queued: batch.length, mounted });
+    startBatchBusyWindow(startedAt);
     post({ type: 'stats', stats: getState() });
     return mounted;
   }
@@ -229,6 +243,53 @@
     }).observe(document.body, { childList: true, subtree: true });
   });
 
+  /* ---------------- 长任务监视（本地效果验证） ----------------
+     统计 >50ms 的主线程长任务（计数/累计/最长），并在每批挂载后
+     结算"本批后长任务时长"——开关补丁前后对比即可量化收益。
+     仅内存统计，永不上传。 */
+  let batchBusy = null; // { start, busy, lastAt, finalized }
+
+  function finalizeBatchBusy() {
+    if (!batchBusy || batchBusy.finalized) return;
+    batchBusy.finalized = true;
+    stats.lastBatchBusyMs = Math.round(batchBusy.busy * 10) / 10;
+    post({ type: 'stats', stats: getState() });
+  }
+
+  function startBatchBusyWindow(startedAt) {
+    finalizeBatchBusy(); // 上一批立即结算，不等空闲窗口
+    batchBusy = { start: startedAt, busy: 0, lastAt: startedAt, finalized: false };
+  }
+
+  try {
+    const po = new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        if (e.entryType !== 'longtask') continue;
+        stats.ltCount += 1;
+        stats.ltTotalMs += e.duration;
+        if (e.duration > stats.ltWorstMs) stats.ltWorstMs = e.duration;
+        if (batchBusy && !batchBusy.finalized
+            && e.startTime >= batchBusy.start - 100
+            && e.startTime - batchBusy.start <= config.busyWindowMaxMs) {
+          batchBusy.busy += e.duration;
+          batchBusy.lastAt = Math.max(batchBusy.lastAt, e.startTime + e.duration);
+          if (e.startTime + e.duration - batchBusy.start > config.busyWindowMaxMs) {
+            finalizeBatchBusy();
+          }
+        }
+      }
+    });
+    po.observe({ entryTypes: ['longtask'] });
+    stats.ltSupported = true;
+  } catch { /* PerformanceObserver/longtask 不可用（非 Chromium） */ }
+
+  window.setInterval(() => {
+    if (batchBusy && !batchBusy.finalized
+        && performance.now() - batchBusy.lastAt > config.busySettleMs) {
+      finalizeBatchBusy();
+    }
+  }, 250);
+
   /* ---------------- 桥消息处理 ---------------- */
   window.addEventListener('message', (ev) => {
     const d = ev.data;
@@ -264,13 +325,18 @@
       stale: stats.stale,
       lastBatchSize: stats.lastBatchSize,
       lastBatchInsertTimeMs: stats.lastBatchInsertTimeMs,
+      ltSupported: stats.ltSupported,
+      ltCount: stats.ltCount,
+      ltTotalMs: stats.ltTotalMs,
+      ltWorstMs: stats.ltWorstMs,
+      lastBatchBusyMs: stats.lastBatchBusyMs,
       queued: pendingMounts.length,
     };
   }
 
   const api = {
     version: VERSION,
-    config: { debug: false, leakStaleThreshold: LEAK_STALE_THRESHOLD },
+    config,
     stats,
     get enabled() { return enabled; },
     get stale() { return stats.stale; },

@@ -29,14 +29,29 @@ async function refreshStatus() {
   const res = await send({ type: 'lcp-status' });
   const el = $('status');
   const cmEl = $('cmStatus');
+  const ltEl = $('ltStatus');
   cmEl.classList.remove('warn');
   if (!res) {
     el.textContent = '未检测到 ChatGPT 会话页 — 请打开 chatgpt.com 的对话';
     cmEl.textContent = '';
+    ltEl.textContent = '';
     return;
   }
   el.textContent = `消息 ${res.messages} · 已折叠 ${res.folded} · ${res.streaming ? '● 流式输出中' : '空闲'}`;
   renderCmStatus(cmEl, res.cm);
+  renderLtStatus($('ltStatus'), res.cm);
+}
+
+const fmtMs = (ms) =>
+  ms == null ? '—' : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+
+function renderLtStatus(el, cm) {
+  const s = cm && cm.stats;
+  if (!cm || !cm.present || !s || !s.ltSupported) {
+    el.textContent = '';
+    return;
+  }
+  el.textContent = `长任务监视：累计 ${fmtMs(s.ltTotalMs)} · 最长 ${fmtMs(s.ltWorstMs)} · 本批后 ${fmtMs(s.lastBatchBusyMs)}`;
 }
 
 function renderCmStatus(el, cm) {
@@ -55,7 +70,7 @@ function renderCmStatus(el, cm) {
   }
   const s = cm.stats;
   if (s && s.intercepted > 0) {
-    el.textContent = `代码块批量挂载：已拦截 ${s.intercepted} 个编辑器 · ${s.batches} 批 · 上批 ${s.lastBatchSize} 个 / ${s.lastBatchInsertTimeMs}ms`;
+    el.textContent = `代码块批量挂载：已拦截 ${s.intercepted} · 挂载 ${s.mounted} · ${s.batches} 批 · 上批 ${s.lastBatchSize} 个 / ${s.lastBatchInsertTimeMs}ms`;
   } else {
     el.textContent = '代码块批量挂载：待命（打开或切换会话时生效）';
   }

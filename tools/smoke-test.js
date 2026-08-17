@@ -265,6 +265,19 @@ function makeCmEnv() {
   );
   const { window } = dom;
   const { document } = window;
+
+  // 模拟 PerformanceObserver（longtask 在 jsdom 不可用）——必须在 eval 之前安装
+  const poInstances = [];
+  window.PerformanceObserver = class {
+    constructor(cb) { this.cb = cb; poInstances.push(this); }
+    observe() {}
+    disconnect() {}
+  };
+  function emitLongTask(duration) {
+    const entry = { entryType: 'longtask', startTime: window.performance.now(), duration };
+    poInstances.forEach((po) => po.cb({ getEntries: () => [entry] }));
+  }
+
   window.eval(cmMountJs);
   const api = window.__LCP_CM_MOUNT__;
   const wrap = document.getElementById('wrap');
@@ -287,12 +300,12 @@ function makeCmEnv() {
     return root;
   }
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  return { window, document, api, wrap, makeCmRoot, sleep, statsMsgs };
+  return { window, document, api, wrap, makeCmRoot, sleep, statsMsgs, emitLongTask };
 }
 
 async function T3() {
   console.log('\nT3: 补丁 5 — CodeMirror 批量挂载');
-  const { window, document, api, wrap, makeCmRoot, sleep, statsMsgs } = makeCmEnv();
+  const { window, document, api, wrap, makeCmRoot, sleep, statsMsgs, emitLongTask } = makeCmEnv();
 
   assert(!!api, 'MAIN world 补丁已注入并暴露 API');
   assert(api.enabled === false, '默认禁用，等待设置下发');
@@ -358,7 +371,35 @@ async function T3() {
   window.postMessage({ ns: 'lcp-cm', type: 'poll' }, '*');
   await sleep(20);
   const last = statsMsgs[statsMsgs.length - 1];
-  assert(!!last && last.version === '0.2.0' && last.stale === true, '桥 poll 返回完整状态（版本+stale）');
+  assert(!!last && last.version === '0.2.1' && last.stale === true, '桥 poll 返回完整状态（版本+stale）');
+
+  // 9) 长任务监视：批量挂载后结算伴随长任务；桥携带字段
+  assert(api.state().ltSupported === true, '长任务监视器已启用');
+  api.config.busySettleMs = 60; // 测试用短结算窗口
+  const rM = makeCmRoot();
+  wrap.appendChild(rM); // 新批（结算上一批）
+  await sleep(20);
+  emitLongTask(300);
+  emitLongTask(320);
+  await sleep(600); // 等待 250ms 轮询 + 60ms settle
+  assert(api.stats.ltCount === 2, '长任务计数正确');
+  assert(Math.abs(api.stats.ltTotalMs - 620) < 1, '长任务累计时长正确');
+  assert(api.stats.ltWorstMs === 320, '最长长任务被记录');
+  assert(api.stats.lastBatchBusyMs === 620, '本批后长任务时长已结算');
+  window.postMessage({ ns: 'lcp-cm', type: 'poll' }, '*');
+  await sleep(20);
+  const last2 = statsMsgs[statsMsgs.length - 1];
+  assert(!!last2 && last2.ltSupported === true && last2.ltTotalMs === api.stats.ltTotalMs, '桥 stats 携带长任务字段');
+
+  // 10) 新批次开始时立即结算上一批（不等空闲窗口）
+  const rA = makeCmRoot();
+  wrap.appendChild(rA);
+  await sleep(20); // flush 批 A
+  emitLongTask(150);
+  const rB = makeCmRoot();
+  wrap.appendChild(rB);
+  await sleep(20); // 批 B flush → 立即结算批 A
+  assert(api.stats.lastBatchBusyMs === 150, '新批次开始即结算上一批');
 }
 
 (async () => {

@@ -72,8 +72,26 @@ page styles) and mounts the whole batch in a single task. Measured on a
   safe** to pass-through and the popup shows a "patch may be stale" warning.
 - If a Tampermonkey userscript variant (`__CHATGPT_CM_PERF_FIX__`) is already
   installed, this patch yields to it to avoid double interception.
-- The popup shows live stats: editors intercepted, batches, last batch size
-  and mount time.
+- The popup shows live stats: editors intercepted/mounted, batches, last
+  batch size and mount time, plus a built-in **local long-task monitor**
+  (in-memory only, never transmitted): total/worst >50 ms main-thread
+  task time, and the long-task time following each batch.
+
+## Verifying the effect (optional)
+
+The "长任务监视" (long-task monitor) line at the bottom of the popup
+quantifies the win directly:
+
+1. With the patch enabled, switch between a few long conversations and
+   note the cumulative / worst / per-batch numbers;
+2. Disable the "代码块批量挂载" toggle, reload the page, switch the same
+   conversations, and compare how much the numbers grow;
+3. The difference is the main-thread blocking time the patch saves
+   (tasks >50 ms count; counters reset on reload).
+
+For a gold-standard measurement, record conversation switches with
+DevTools → Performance with the patch on and off; `window.__LCP_CM_MOUNT__.state()`
+in the page console returns the full stats object.
 
 ### How folding behaves
 
@@ -99,7 +117,7 @@ rendering strategy or DOM structure, compatibility may need to be revalidated.
 
 ```bash
 npm install   # installs jsdom (dev dependency only)
-npm test      # runs tools/smoke-test.js (42 assertions, jsdom-based)
+npm test      # runs tools/smoke-test.js (49 assertions, jsdom-based)
 ```
 
 To regenerate the icons (pure standard library, no Pillow):
