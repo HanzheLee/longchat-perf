@@ -6,6 +6,8 @@
 No network requests.  No analytics.  No message deletion.
 ```
 
+📊 **Measured: worst conversation-switch freeze 8.5s → 1.1s (-87%), cumulative blocking -52%** → [full data in "Verifying the effect"](#verifying-the-effect-optional)
+
 ~700 lines of core JS. No framework. No build step. No dependencies at runtime.
 
 [中文说明 (README.zh-CN.md)](README.zh-CN.md)
