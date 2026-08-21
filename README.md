@@ -45,7 +45,7 @@ popup and can be disabled individually (or the whole extension can be turned off
 
 | Patch | What it does |
 |---|---|
-| **Off-screen rendering skip** | Applies `content-visibility: auto` with `contain-intrinsic-size` to message and code-block elements. Browsers then skip layout and painting for content outside the viewport (Chromium 85+, Firefox 125+, Safari 18+). |
+| **Off-screen rendering skip** | Applies `content-visibility: auto` with `contain-intrinsic-size` to message and code-block elements. Browsers then skip layout and painting for content outside the viewport (Chromium 105+, Firefox 121+, Safari 15.4+). Messages containing tables are excluded automatically to prevent wide-table clipping (v0.3.1). |
 | **Backdrop-filter disable** | Disables `backdrop-filter` as an optional aggressive performance patch, avoiding per-frame layer compositing of blurred surfaces during scroll. |
 | **Progressive old-message folding** | While you scroll down, messages far above the viewport (at least two viewports away) are folded to zero height via CSS and collapsed behind a small expand bar. Scrolling up expands everything again. |
 | **Streaming-phase throttle** | While an answer is streaming, animations and transitions in the message area are paused to reduce compositor work on every token. |

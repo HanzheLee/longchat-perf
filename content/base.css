@@ -5,17 +5,25 @@
    ============================================================ */
 
 /* ---------- 补丁 1：content-visibility 核心渲染跳过 ----------
-   屏幕外的消息 / 代码块跳过布局与绘制（浏览器原生优化，Chrome 85+，
-   Edge 85+, Firefox 125+, Safari 18+）。
+   屏幕外的消息 / 代码块跳过布局与绘制（浏览器原生优化；
+   :has() 需 Chrome 105+ / Firefox 121+ / Safari 15.4+，
+   不支持时本补丁自动不生效，安全降级）。
    contain-intrinsic-size: auto 让浏览器记住最近一次真实尺寸，
-   尽量消除滚动到附近时的尺寸跳动。 */
-html.lcp-on.lcp-cv [data-message-author-role],
-html.lcp-on.lcp-cv article[data-testid^="conversation-turn"] {
+   尽量消除滚动到附近时的尺寸跳动。
+
+   ⚠ 含表格的消息必须排除（:not(:has(table))，修复 issue #1）：
+   content-visibility: auto 隐含 paint containment，后代绘制会被
+   裁剪到消息列边框盒；而 ChatGPT 的宽表格容器（.xxx_tableContainer）
+   是负 margin 全出血布局，故意溢出消息列借用两侧留白横向扩展，
+   溢出部分会被裁掉 —— 表现为“宽表格右侧整块空白/截断”。
+   含表格的消息不参与屏外跳过；表格消息占比极小，性能影响可忽略。 */
+html.lcp-on.lcp-cv [data-message-author-role]:not(:has(table)),
+html.lcp-on.lcp-cv article[data-testid^="conversation-turn"]:not(:has(table)) {
   content-visibility: auto !important;
   contain-intrinsic-size: auto 240px !important;
 }
-html.lcp-on.lcp-cv [data-message-author-role] pre,
-html.lcp-on.lcp-cv article[data-testid^="conversation-turn"] pre {
+html.lcp-on.lcp-cv [data-message-author-role]:not(:has(table)) pre,
+html.lcp-on.lcp-cv article[data-testid^="conversation-turn"]:not(:has(table)) pre {
   content-visibility: auto !important;
   contain-intrinsic-size: auto 120px !important;
 }

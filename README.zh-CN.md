@@ -43,7 +43,7 @@ content script 提供五个可选补丁，均可通过工具栏弹窗单独开�
 
 | 补丁 | 作用 |
 |---|---|
-| **屏外渲染跳过** | 给消息与代码块元素应用 `content-visibility: auto` + `contain-intrinsic-size`，浏览器跳过视口外内容的布局与绘制（Chromium 85+、Firefox 125+、Safari 18+）。 |
+| **屏外渲染跳过** | 给消息与代码块元素应用 `content-visibility: auto` + `contain-intrinsic-size`，浏览器跳过视口外内容的布局与绘制（Chromium 105+、Firefox 121+、Safari 15.4+）。含表格的消息会自动跳过本补丁，避免宽表格被裁剪（v0.3.1）。 |
 | **中和毛玻璃** | 作为可选的高强度性能补丁禁用 `backdrop-filter`，避免滚动时毛玻璃表面逐帧合成图层。 |
 | **旧消息渐进折叠** | 向下滚动时，将视口上方至少两屏之外的消息以 CSS 折叠为零高度，收进一条提示条；向上滚动即全部展开。 |
 | **流式输出节流** | 回答流式输出期间暂停消息区的动画与过渡，降低每个 token 到达时的合成开销。 |
